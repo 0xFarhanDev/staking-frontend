@@ -16,6 +16,10 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## WalletConnect Setup
+
+The default WalletConnect project ID can be overridden with `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` in `.env.local`. Add the app origin, such as `http://localhost:3000`, to that project's allowlist in [Reown Cloud](https://cloud.reown.com). Restart the dev server after changing the environment variable.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
