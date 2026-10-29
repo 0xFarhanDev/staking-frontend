@@ -16,7 +16,9 @@ const config = createConfig({
     connectors,
     chains: [sepolia],
     transports: {
-    [sepolia.id]: http("https://eth-sepolia.g.alchemy.com/v2/alch_K70JoLporg_a1nFPFCpmj"),
+    [sepolia.id]: http(
+        process.env.NEXT_PUBLIC_RPC_URL || "https://ethereum-sepolia-rpc.publicnode.com",
+    ),
 },
     ssr: true,
 });

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,7 +11,25 @@ const STAKING_CONTRACT_ADDRESS = "0xB17eF2e17Cc4968c79f39366EaAdD40a9CCb3107".to
 
 export async function POST(req: Request) {
     try {
-        const body = await req.json();
+        const signingKey = process.env.ALCHEMY_WEBHOOK_SIGNING_KEY;
+        if (!signingKey) {
+            console.error('ALCHEMY_WEBHOOK_SIGNING_KEY is not configured');
+            return NextResponse.json({ error: 'Webhook is not configured' }, { status: 503 });
+        }
+
+        const rawBody = await req.text();
+        const signature = req.headers.get('x-alchemy-signature');
+        if (!signature || !/^[a-f0-9]{64}$/i.test(signature)) {
+            return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 401 });
+        }
+
+        const expectedSignature = createHmac('sha256', signingKey).update(rawBody, 'utf8').digest();
+        const receivedSignature = Buffer.from(signature, 'hex');
+        if (!timingSafeEqual(expectedSignature, receivedSignature)) {
+            return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 401 });
+        }
+
+        const body = JSON.parse(rawBody);
         console.log("CCTV Alchemy ngirim data:", JSON.stringify(body, null, 2));
         const activities = body.event?.activity || [];
         console.log(`Total logs yang masuk dari alchemy: ${activities.length}`);
