@@ -3,7 +3,7 @@
 import * as React from "react";
 import { RainbowKitProvider, getDefaultWallets } from "@rainbow-me/rainbowkit";
 import { http, WagmiProvider, createConfig } from "wagmi";
-import { foundry, sepolia } from "wagmi/chains";
+import { sepolia } from "wagmi/chains";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "@rainbow-me/rainbowkit/styles.css";
 
@@ -14,10 +14,9 @@ const { connectors } = getDefaultWallets({
 
 const config = createConfig({
     connectors,
-    chains: [foundry, sepolia],
+    chains: [sepolia],
     transports: {
-    [foundry.id]: http("http://127.0.0.1:8545"),
-    [sepolia.id]: http(),
+    [sepolia.id]: http("https://eth-sepolia.g.alchemy.com/v2/alch_K70JoLporg_a1nFPFCpmj"),
 },
     ssr: true,
 });

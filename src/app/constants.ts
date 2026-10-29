@@ -1,7 +1,7 @@
 import { parseAbi } from "viem";
 
-export const STAKING_CONTRACT_ADDRESS = "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0";
-export const TOKEN_CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+export const STAKING_CONTRACT_ADDRESS = "0xB17eF2e17Cc4968c79f39366EaAdD40a9CCb3107";
+export const TOKEN_CONTRACT_ADDRESS = "0x573D20F7196EE5a69C4E18B0bAc7F6329951F0Da";
 
 export const tokenAbi = parseAbi([
     "function approve(address spender, uint256 amount) external returns (bool)",

@@ -2,15 +2,36 @@
 
 import { useState, useEffect } from "react";
 import { BrowserProvider, Contract } from "ethers";
-import { formatEther, parseEther, createWalletClient, createPublicClient, custom } from "viem";
-import { foundry } from "viem/chains";
+import { formatEther, parseEther, createWalletClient, createPublicClient, custom, numberToBytes, stringToBytes } from "viem";
+import { foundry, sepolia } from "viem/chains";
 import { STAKING_CONTRACT_ADDRESS, TOKEN_CONTRACT_ADDRESS, tokenAbi, stakingAbi } from "./constants";
 import { useReadContract, useWriteContract } from "wagmi";
+import { useAccount } from "wagmi";
+import ProfileForm from "./ProfileForm";
+import { toSmartAccount } from "viem/account-abstraction";
+import Leaderboard from "./Leaderboard";
 
 export default function Home() {
+ 
   const [address, setAddress] = useState<string | null>(null);
   const [amount, setAmount] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [userProfile, setUserProfile] = useState<{ username: string; points: number; level: number } | null>(null);
+
+  const fetchUserProfile = async () => {
+    if (!address) return;
+
+    try {
+      const response = await fetch(`/api/profile?address=${address}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        setUserProfile(data);
+      }
+    } catch (error) {
+      console.error("Gagal ngambil profil terbaru", error);
+    }
+  };
 
   useEffect(() => {
     if (typeof window !== "undefined" && (window as any).ethereum) {
@@ -22,7 +43,30 @@ export default function Home() {
     }
   }, []);
 
-  // Fungsi connect langsung tembus ke MetaMask
+  useEffect(() => {
+    if (address) {
+      fetch(`/api/profile?address=${address}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Profile not found");
+        return res.json();
+      })
+      .then((data) => setUserProfile(data))
+      .catch((err) => {
+        console.log("User belum punya profile off-chain");
+        setUserProfile(null);
+        });
+      } else {
+        setUserProfile(null);
+    }
+  }, [address]);
+
+  useEffect(() => {
+    if (address) {
+      fetchUserProfile();
+    }
+  }, [address]);
+
+  
   const connectWallet = async () => {
     if (typeof window !== "undefined" && (window as any).ethereum) {
       try {
@@ -69,14 +113,14 @@ export default function Home() {
   const getWalletClient = () => {
     return createWalletClient({
       account: address as `0x${string}`,
-      chain: foundry,
+      chain: sepolia,
       transport: custom((window as any).ethereum),
     }) as any;
   };
 
   const getPublicClient = () => {
     return createPublicClient({
-      chain: foundry,
+      chain: sepolia,
       transport: custom((window as any).ethereum),
     }) as any;
   };
@@ -102,6 +146,7 @@ export default function Home() {
       functionName: "approve",
       args: [STAKING_CONTRACT_ADDRESS as `0x${string}`, parseEther(amount)],
       account: address as `0x${string}`,
+      chain: sepolia,
     });
     console.log("Approve TX Hash:", hash);
     alert("Approve Berhasil di prosses di wallet! Lanjut klik stake.");
@@ -126,16 +171,20 @@ export default function Home() {
         functionName: "stake",
         args: [parseEther(amount)],
         account: address as `0x${string}`,
+        chain: sepolia,
       });
+      console.log("Stake TX Hash", hash);
 
-      const publicClient = getPublicClient();
-      await publicClient.waitForTransactionReceipt({ hash });
+      const provider = new BrowserProvider((window as any).ethereum);
+      await provider.waitForTransaction(hash);
 
-      console.log("Stake TX Hash:", hash);
-      alert("Stake Berhasil bro!!.");
+      alert("Stake berhasil, Silakan cek profil lu lagi.");
+
       refetchTokenBalance();
       refetchStakedBalance();
       refetchPendingRewards();
+      fetchUserProfile();
+
     } catch (error) {
       console.log(error);
       alert("Stake gagal bro di mulai dari awal lagi!!");
@@ -149,13 +198,25 @@ export default function Home() {
      
     try {
       setIsLoading(true);
-     const stakingContract = await getContract(STAKING_CONTRACT_ADDRESS, stakingAbi);
-     const tx = await stakingContract.withdraw();
-     console.log("Withdraw TX Hash:", tx.hash);
+      const client = getWalletClient();
+      const hash = await client.writeContract({
+        address: STAKING_CONTRACT_ADDRESS as `0x${string}`,
+        abi: stakingAbi,
+        functionName: "withdraw",
+        account: address as `0x${string}`,
+        chain: sepolia,
+      });
+     console.log("Withdraw TX Hash:", hash);
 
-      await tx.wait();
+     const provider = new BrowserProvider((window as any).ethereum);
+     await provider.waitForTransaction(hash);
+
+     alert("Withdraw Berhasil bro,saldo KHD lu udah di update!");
+
       refetchTokenBalance();
       refetchStakedBalance();
+      refetchPendingRewards();
+      fetchUserProfile();
     alert("Withdraw Berhasil!!.");
   } catch (error) {
     console.log(error);
@@ -180,7 +241,6 @@ export default function Home() {
     console.log("Claim TX Hash:", hash);
     alert("Rewards udah dapet nih.");
     refetchTokenBalance();
-    refetchStakedBalance();
     refetchPendingRewards();
   } catch (error) {
     console.log(error);
@@ -211,6 +271,10 @@ export default function Home() {
           </button>
         )}
       </div>
+        <ProfileForm
+        onSuccess={() => {
+          console.log("Minta fetch ulang API profile...");
+        }}/>
 
       {/* Main Card Dashboard */}
       <div className="w-full max-w-md p-8 bg-gray-900 border border-gray-800 rounded-2xl shadow-xl flex flex-col gap-6">
@@ -218,6 +282,23 @@ export default function Home() {
 
         {isConnected ? (
           <div className="flex flex-col gap-4">
+          {userProfile && (
+            <div className="flex flex-col p-4 bg-gray-800 rounded-xl border border-yellow-500/30 gap-2">
+              <span className="text-xs text-yellow-500 font-bold tracking-wider uppercase mb-1">Off-Chain Profile</span>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400 text-sm">Username:</span>
+                <span className="font-bold">{userProfile.username}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400 text-sm">Level:</span>
+                  <span className="font-bold">{userProfile.level}</span>
+                  </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400 text-sm">Points:</span>
+                  <span className="font-bold text-blue-400">{userProfile.points}</span>
+                </div>
+                </div>
+          )}
             <div className="flex justify-between items-center p-3 bg-gray-800 rounded-xl border border-gray-700">
               <span className="text-gray-400 text-sm">Wallet Balance:</span>
               <span className="font-bold text-yellow-300">
@@ -286,6 +367,7 @@ export default function Home() {
           </div>
         )}
       </div>
+      <Leaderboard/>
 
       <div className="text-xs text-gray-600">
         Powered by Foundry and Next.js
